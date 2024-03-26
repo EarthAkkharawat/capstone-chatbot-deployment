@@ -5,7 +5,7 @@ from models import Question, ResponseIR
 ir_service = APIRouter()
 
 # Create a new question
-@ir_service.post("/askq", status_code=201)
+@ir_service.post("/createdocs", status_code=201)
 async def create_task(payload: Question):
     if not payload or payload.question is None:
         raise HTTPException(status_code=400, detail="Question is required")
@@ -16,7 +16,6 @@ async def create_task(payload: Question):
     question = response["question"]
     source_docs = response["reranked_docs"]
     return {"time": time, "question": question, "reranked_docs": source_docs}
-
 
 
 # from fastapi.testclient import TestClient

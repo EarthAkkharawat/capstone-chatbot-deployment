@@ -1,7 +1,3 @@
-# todo/main.py
-# Natawut Nupairoj
-# Department of Computer Engineering, Chulalongkorn University
-# Created for 2110415 Software Defined Systems
 import logging
 
 from fastapi import FastAPI, APIRouter
@@ -9,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic.main import BaseModel
 
 from route import ir_service
-
+from uvicorn import run
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,3 +37,7 @@ app.add_middleware(
 )
 app.include_router(service_info)
 app.include_router(ir_service)
+
+if __name__ == "__main__":
+    # Run the FastAPI app with uvicorn, specifying the port
+    run(app, host="0.0.0.0", port=8000)
