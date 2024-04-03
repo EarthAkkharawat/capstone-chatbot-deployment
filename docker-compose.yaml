@@ -1,0 +1,57 @@
+version: "3.7"
+
+services:
+  ir-service:
+    container_name: ir-service
+    build:
+      context: ./ir-service
+      dockerfile: ./ir-service/dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+    
+  llm-service:
+    container_name: llm-service
+    build:
+      context: ./llm-service
+      dockerfile: ./llm-service/dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+
+networks:
+  chatbot-network:

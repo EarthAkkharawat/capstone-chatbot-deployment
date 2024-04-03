@@ -1,0 +1,11 @@
+FROM python:3.11-slim as base
+
+COPY . /ir-service
+WORKDIR /ir-service
+
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+RUN pip install -r /ir-service/requirements.txt
+
+EXPOSE 8000
+
+CMD [ "python3", "main.py"]

@@ -1,0 +1,10 @@
+FROM python:3.11-slim as base
+
+COPY . /llm-service
+WORKDIR /llm-service
+
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+RUN pip install -r /llm-service/requirements.txt
+
+EXPOSE 8001
+CMD [ "python3", "main.py"]
