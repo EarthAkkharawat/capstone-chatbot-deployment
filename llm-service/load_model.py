@@ -51,10 +51,15 @@ def load_LLM_and_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
-        # quantization_config=bnb_config,
-        trust_remote_code=True,
-        # local_files_only=True,
-        device_map="auto",  # NOTE use gpu
+        load_in_4bit = True,
+        device_map = 'auto',
+        use_cache = False,
+        # torch_dtype = torch.bfloat16,
+        temperature = 0.7,
+        top_p=0.9,
+        repetition_penalty = 1.1,
+        do_sample = True,
+        pad_token_id=tokenizer.eos_token_id,
     )
     tokenizer.pad_token = tokenizer.eos_token  # </s>
     # tokenizer.add_special_tokens = False
@@ -105,3 +110,5 @@ torch.onnx.export(
 tokenizer.save_pretrained(
     "/tarafs/data/project/proj0183-ATS/finetune/lanta-finetune/llm-service/tokenizer"
 )
+
+model.push_to_hub("seallms-7b-v2")

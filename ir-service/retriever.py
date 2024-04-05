@@ -114,9 +114,9 @@ def find_case_number(text):
     pattern = re.compile(r"(?<!\d)(\d{1,5}/\d{4})(?!\d)")
     match = re.findall(pattern, text)
     if pattern.search(text) and all(e in mapper.values() for e in match):
-        return True, match
+        return [True, match]
     else:
-        return False, ""
+        return [False, ""]
 
 
 def keyword_matcher(doc, keywords):
@@ -222,7 +222,7 @@ def retriever(question, documents, vector_database):
             model="rerank-multilingual-v2.0",
             top_n=5,
         )
-        results = [relevant_src_docs[hit.index] for hit in rerank_hits]
+        results = [relevant_src_docs[hit.index] for hit in rerank_hits.results]
         parse_reranked_docs = parse_source_docs(results)
         tf = time.time()
         # return f"""> Time: {tf-ti}\n\n> Question: {question}\n\n> Answer: {result}\n\n> Source docs:\n{relevant_source_docs}"""
@@ -273,6 +273,7 @@ def main(question):
     vectordb = embed_database(documents=documents, persist_directory=persist_directory)
     # question = "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"
     qa_res = retriever(question, documents, vectordb)
+    print(qa_res)
     return qa_res
 
 

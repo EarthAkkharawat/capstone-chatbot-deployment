@@ -5,7 +5,7 @@ services:
     container_name: ir-service
     build:
       context: ./ir-service
-      dockerfile: ./ir-service/dockerfile
+      dockerfile: ./dockerfile
     devices:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1
@@ -31,7 +31,7 @@ services:
     container_name: llm-service
     build:
       context: ./llm-service
-      dockerfile: ./llm-service/dockerfile
+      dockerfile: ./dockerfile
     devices:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1

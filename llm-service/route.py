@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from models import Question
-from inference_finetuned_typhoon_7b import main
+from inference_finetuned import main
 import requests
 import json
 
