@@ -1,0 +1,11 @@
+FROM python:3.11-slim as base
+
+COPY . /gateway-service
+WORKDIR /gateway-service
+
+
+RUN pip install -r /gateway-service/requirements.txt
+
+EXPOSE 8002
+
+CMD [ "python3", "main.py"]%
