@@ -190,15 +190,7 @@ def retriever(question, documents, vector_database):
             return {
                 "time": 0,
                 "question": question,
-                "answer": "",
-                "keywords": keywords,
-                "matched_keywords": "",
-                "keywords_filtered_docs": "No Relevant source doc by keywords search",
-                "num keywords_filtered_docs": 0,
-                "retrieved_docs": "",
-                "num retrieved_docs": 0,
                 "reranked_docs": "",
-                "num parse_reranked_docs": 0,
             }
 
         # context search

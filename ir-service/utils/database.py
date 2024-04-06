@@ -37,7 +37,7 @@ def embed_database(
     if os.path.isdir(persist_directory):
         if vector_store == "faiss":
             vectordb = FAISS.load_local(
-                persist_directory, embeddings, allow_dangerous_deserialization=True
+                persist_directory, embeddings
             )
         elif vector_store == "chroma":
             vectordb = Chroma(
