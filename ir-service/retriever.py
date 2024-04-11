@@ -3,13 +3,9 @@ import os
 import sys
 import time
 import re
-import torch
 from IPython.display import display
 from dotenv import load_dotenv
-from tqdm import tqdm
 import json
-import numpy as np
-import pandas as pd
 
 from pythainlp import word_tokenize, pos_tag
 from pythainlp.corpus.common import thai_stopwords

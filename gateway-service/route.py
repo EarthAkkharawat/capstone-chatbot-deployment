@@ -62,7 +62,7 @@ def event_handle(event):
         # line_bot_api.reply_message(rtoken, replyObj)
         time.sleep(10)
 
-        url = "http://127.0.0.1:8000/createresponse"
+        url = "http://0.0.0.0:8001/createresponse"
 
         response_llm = call_api(msg,url)
         replyObj = TextSendMessage(text=response_llm)

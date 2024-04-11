@@ -1,5 +1,10 @@
-FROM earthakkharawat/capstone_env:1.0
+FROM earthakkharawat/capstone_env:2.0 AS build
+COPY . .
 
-COPY main.py .
+# Runtime stage
+# FROM huggingface/optimum-nvidia
+# COPY --from=build . .
+RUN pip install fastapi
+RUN pip install bitsandbytes
 EXPOSE 8001
-CMD [ "python3", "/llm-service/main.py"]
+CMD ["python3", "main.py"]

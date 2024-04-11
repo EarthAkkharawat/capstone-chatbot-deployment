@@ -10,30 +10,45 @@ import onnx
 from torch.nn import DataParallel
 from transformers import (
     AutoTokenizer,
+    BitsAndBytesConfig,
 )
 import onnxruntime as rt
+from optimum.nvidia import AutoModelForCausalLM
 
 torch.cuda.empty_cache()
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"using {DEVICE} device")
 
+model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
+
 
 # Load both LLM model and tokenizer
 def load_LLM_and_tokenizer():
-    tokenizer = AutoTokenizer.from_pretrained(
-        "/Users/earthakkharawat/Documents/senior/capstone/capstone-chatbot-deployment/llm-service/tokenizer"
+    bnb_config = BitsAndBytesConfig(
+        # load_in_8bit=True,
+        # llm_int8_has_fp16_weight=True,
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
     )
-    sessOptions = rt.SessionOptions()
-    # sessOptions.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
-    model = rt.InferenceSession(
-        "/Users/earthakkharawat/Documents/senior/capstone/capstone-chatbot-deployment/llm-service/model.onnx",
-        sessOptions,
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name_or_path,
+        # quantization_config=bnb_config,
+        trust_remote_code=True,
+        # local_files_only=True,
+        use_fp8=True,
+        device_map="auto",  # NOTE use gpu
     )
-    return model, tokenizer, sessOptions
+    tokenizer.pad_token = tokenizer.eos_token  # </s>
+    # tokenizer.add_special_tokens = False
+    # tokenizer.padding_side = "right"
+    return model, tokenizer
 
 
-model, tokenizer, sessOptions = load_LLM_and_tokenizer()
+model, tokenizer = load_LLM_and_tokenizer()
 # model.config.use_cache = False
 
 if torch.cuda.device_count() > 1:
@@ -75,23 +90,23 @@ def generate_answer_with_timer(text: str):
         truncation=True,
         max_length=4096,
     )
-    # print(batch["input_ids"])
-    # print("\n\n")
-    # print(batch["attention_mask"])
     with torch.cuda.amp.autocast():
-        output_tokens = model.run(
-            [],
-            {
-                "input": batch["input_ids"].int().numpy(),
-                "attention_mask": batch["attention_mask"].int().numpy(),
-            },
+        output_tokens = model.generate(
+            input_ids=batch["input_ids"].to(
+                DEVICE
+            ),  # NOTE if gpu is unavailable DELETE ".to(DEVICE)"
+            attention_mask=batch["attention_mask"].to(DEVICE),
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=0.95,
+            repetition_penalty=1.05,
+            num_return_sequences=1,
+            do_sample=True,
         )
-
-    # print(output_tokens[0].shape)
-    token_ids = np.argmax(output_tokens, axis=-1)
-    response = tokenizer.decode(token_ids[0][0], skip_special_tokens=True)
+    response = tokenizer.decode(
+        output_tokens[0][len(batch["input_ids"][0]) :], skip_special_tokens=True
+    )
     response_time = time.time() - start_time
-    # print(response)
     return response, response_time
 
 
@@ -100,11 +115,8 @@ def main(question, source_docs):
     # knowledge = """คดีหมายเลข 934/2566\nคดี 934/2566\nโจทก์ฟ้องและแก้ฟ้องขอให้ลงโทษตามพระราชบัญญัติว่าด้วยความ\nผิดของพนักงานในองค์การหรือหน่วยงานของรัฐ พ.ศ. 2502 มาตรา 4, 8, 11\nประมวลกฎหมายอาญา มาตรา 90, 91, 334, 335 (11) ศาลชั้นต้นไต่สวนมูลฟ้องแล้ว เห็นว่าคดีมีมูล ให้ประทับฟ้อง จำเลยให้การปฏิเสธ ศาลชั้นต้นพิพากษาว่า จำเลยมีความผิดตามพระราชบัญญัติว่าด้วย\nความผิดของพนักงานในองค์การหรือหน่วยงานของรัฐ"""
     text = generate_inference_prompt(question, source_docs)
     answer, response_time = generate_answer_with_timer(text)
-    substring = "คำตอบ:"
-    start_index = text.find(substring)
-    if start_index != -1:
-        answer = answer[start_index + len(substring) :]
-        print(answer)
+    print(answer)
+    print(response_time)
     print("\nFinished inference with finetuned typhoon-7b\n")
     # print(answer)
     return answer, response_time

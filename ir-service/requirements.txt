@@ -4,6 +4,11 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
+pythainlp
+cohere
+fastapi==0.110.1
+sentence_transformers
+
 accelerate==0.22.0
     # via peft
 aiofiles==23.2.1
@@ -44,7 +49,6 @@ bcrypt==4.0.1
     # via chromadb
 bidict==0.22.1
     # via python-socketio
-bitsandbytes
 certifi==2023.7.22
     # via
     #   httpcore
@@ -65,8 +69,6 @@ click==8.1.7
     #   nltk
     #   prisma
     #   uvicorn
-coloredlogs==15.0.1
-    # via onnxruntime
 cryptography==41.0.3
     # via
     #   auth0-python
@@ -111,8 +113,6 @@ googleapis-common-protos==1.60.0
     # via
     #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-# gpt4all==1.0.9
-    # via -r requirements.in
 grpcio==1.58.0
     # via opentelemetry-exporter-otlp-proto-grpc
 h11==0.14.0
@@ -156,8 +156,6 @@ langchain==0.0.237
     # via
     #   -r requirements.in
     #   langfuse
-langfuse==1.0.17
-    # via -r requirements.in
 langsmith==0.0.10
     # via langchain
 lazify==0.4.0
@@ -241,8 +239,6 @@ opentelemetry-semantic-conventions==0.40b0
     # via opentelemetry-sdk
 overrides==7.4.0
     # via chromadb
-onnxruntime
-onnx
 packaging==23.1
     # via
     #   accelerate
