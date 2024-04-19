@@ -29,7 +29,7 @@ async def create_task(payload: Question):
     
     response_llm, time_llm = main(question, source_docs)
     
-    return {"time": time_ir + time_llm, "question": question, "reranked_docs": source_docs, "answer": response_llm}
+    return {"answer": response_llm}
 
 
 

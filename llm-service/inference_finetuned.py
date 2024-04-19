@@ -8,12 +8,12 @@ import pandas as pd
 import bitsandbytes as bnb
 
 from torch.nn import DataParallel
-from peft import AutoPeftModelForCausalLM
 from transformers import (
-    AutoModelForCausalLM,
+    # AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
 )
+from optimum.nvidia import AutoModelForCausalLM
 from peft import (
     PeftModel,
 )
@@ -46,8 +46,8 @@ def load_LLM_and_tokenizer():
         device_map="auto",  # NOTE use gpu
         torch_dtype=torch.bfloat16,
         use_cache=False,
+        use_fp8=True,
     )
-    # tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     tokenizer = AutoTokenizer.from_pretrained(
         finetuned_weight,
         padding_side="left",
@@ -55,12 +55,13 @@ def load_LLM_and_tokenizer():
         add_bos_token=True,
     )
     tokenizer.pad_token = tokenizer.eos_token
+    model.config.use_cache = False
+    model = PeftModel.from_pretrained(model, finetuned_weight)
     return model, tokenizer
 
 
-model, tokenizer = load_LLM_and_tokenizer()
-model.config.use_cache = False
-model = PeftModel.from_pretrained(model, finetuned_weight)
+model, tokenizer = None, None
+
 
 if torch.cuda.device_count() > 1:
     print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -88,6 +89,11 @@ temperature = 0.7  # @param {type: "number"}
 
 def generate_answer_with_timer(text: str):
     start_time = time.time()
+    global model
+    global tokenizer
+    if model is None or tokenizer is None:
+        model, tokenizer = load_LLM_and_tokenizer()
+    print("\nUsing model and tokenizer\n")
     batch = tokenizer(
         text,
         return_tensors="pt",
@@ -95,6 +101,7 @@ def generate_answer_with_timer(text: str):
         truncation=True,
         max_length=4096,
     )
+    
     with torch.cuda.amp.autocast():
         output_tokens = model.generate(
             input_ids=batch["input_ids"].to(
@@ -129,6 +136,7 @@ def main(question, knowledge):
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
     print("\nFinished inference with finetuned seallms-7b-v2\n")
+    del text
     # print(answer)
     # print(response_time)
     return answer, response_time

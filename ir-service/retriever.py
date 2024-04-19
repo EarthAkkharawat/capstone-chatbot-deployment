@@ -1,11 +1,13 @@
-# %%
 import os
 import sys
 import time
 import re
-from IPython.display import display
+import torch
 from dotenv import load_dotenv
+from tqdm import tqdm
 import json
+import numpy as np
+import pandas as pd
 
 from pythainlp import word_tokenize, pos_tag
 from pythainlp.corpus.common import thai_stopwords
@@ -24,9 +26,9 @@ from fastapi import FastAPI, APIRouter
 
 load_dotenv()
 
-co = cohere.Client(os.getenv("COHERE"))
+co = None
 
-root_dir = os.path.dirname(os.getcwd()) + "/ir-service"
+root_dir = "."
 sys.path.append(root_dir)  # if import module in this project error
 if os.name != "nt":
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -172,6 +174,7 @@ def parse_matched_keywords(matched_keywords):
 
 
 def retriever(question, documents, vector_database):
+    global co
     try:
         if question in ["", "-", None]:
             raise Exception("No question")
@@ -204,15 +207,20 @@ def retriever(question, documents, vector_database):
                 "reranked_docs": "No relevant source docs",
             }
         relevant_docs = [doc.page_content for doc in relevant_src_docs]
+        if co is None:
+            co = cohere.Client(os.getenv("COHERE"))
         rerank_hits = co.rerank(
             query=question,
             documents=relevant_docs,
             model="rerank-multilingual-v2.0",
-            top_n=5,
+            top_n=3,
         )
         results = [relevant_src_docs[hit.index] for hit in rerank_hits.results]
         parse_reranked_docs = parse_source_docs(results)
         tf = time.time()
+        
+        del keywords, keywords_filtered_docs, matched_keywords, retrieved_docs, relevant_src_docs, relevant_docs, rerank_hits, results
+        
         # return f"""> Time: {tf-ti}\n\n> Question: {question}\n\n> Answer: {result}\n\n> Source docs:\n{relevant_source_docs}"""
         return {
             "time": tf - ti,
@@ -229,45 +237,51 @@ def retriever(question, documents, vector_database):
             "source": "",
         }
 
+contents = None
+documents_specific = None
+documents_general = None
+documents = None
+vectordb = None
 
 def main(question):
-    with open(f"{root_dir}/specific_case_knowledge.txt", "r", encoding="utf-8") as f:
-        content = f.read()
-
-    contents = content.split("\n\n")
-    documents_specific = [
-        Document(
-            page_content=f"{endl.join(c.split(endl)[1:])}",
-            metadata={
-                "source": f"docs/{mapper_reverse[c.split(endl)[0]]}",
-                "category": "specific",
-            },
+    global contents
+    global documents_specific
+    global documents_general
+    global documents
+    global vectordb
+    
+    if contents is None:
+        with open(f"{root_dir}/specific_case_knowledge.txt", "r", encoding="utf-8") as f:
+            content = f.read()
+        contents = content.split("\n\n")
+        
+    if documents_specific is None:    
+        documents_specific = [
+            Document(
+                page_content=f"{endl.join(c.split(endl)[1:])}",
+                metadata={
+                    "source": f"docs/{mapper_reverse[c.split(endl)[0]]}",
+                    "category": "specific",
+                },
+            )
+            for c in contents
+        ]
+    if documents_general is None:    
+        documents_general = loadDocuments(
+            source_dir=f"{root_dir}/_ตรวจแล้ว", chunk_size=10e12, chunk_overlap=0
         )
-        for c in contents
-    ]
-
-    documents_general = loadDocuments(
-        source_dir=f"{root_dir}/_ตรวจแล้ว", chunk_size=10e12, chunk_overlap=0
-    )
-    for i in range(len(documents_general)):
-        documents_general[i].metadata["source"] = (
-            documents_general[i].metadata["source"].replace(f"{root_dir}/", "")
-        )
-        documents_general[i].metadata["category"] = "general"
-
-    documents = documents_general + documents_specific
+        for i in range(len(documents_general)):
+            documents_general[i].metadata["source"] = (
+                documents_general[i].metadata["source"].replace(f"{root_dir}/", "")
+            )
+            documents_general[i].metadata["category"] = "general"
+    if documents is None:
+        documents = documents_general + documents_specific
 
     persist_directory = f"{root_dir}/vectordb"
-    vectordb = embed_database(documents=documents, persist_directory=persist_directory)
+    if vectordb is None:
+        vectordb = embed_database(documents=documents, persist_directory=persist_directory)
     # question = "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"
     qa_res = retriever(question, documents, vectordb)
     print(qa_res)
     return qa_res
-
-
-# if __name__ == "__main__":
-#     logging.basicConfig(
-#         format="\n%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(message)s",
-#         level=logging.INFO,
-#     )
-#     main()
