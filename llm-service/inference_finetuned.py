@@ -9,11 +9,12 @@ import bitsandbytes as bnb
 
 from torch.nn import DataParallel
 from transformers import (
-    # AutoModelForCausalLM,
+#    AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
 )
 from optimum.nvidia import AutoModelForCausalLM
+from optimum.nvidia.quantization import AutoQuantizationConfig, Float8QuantizationConfig
 from peft import (
     PeftModel,
 )
@@ -30,24 +31,6 @@ finetuned_weight = "./seallms_experiments"
 
 # Load both LLM model and tokenizer
 def load_LLM_and_tokenizer():
-    bnb_config = BitsAndBytesConfig(
-        # load_in_8bit=True,
-        # llm_int8_has_fp16_weight=True,
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-    )
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name_or_path,
-        quantization_config=bnb_config,
-        trust_remote_code=True,
-        # local_files_only=True,
-        device_map="auto",  # NOTE use gpu
-        torch_dtype=torch.bfloat16,
-        use_cache=False,
-        use_fp8=True,
-    )
     tokenizer = AutoTokenizer.from_pretrained(
         finetuned_weight,
         padding_side="left",
@@ -55,6 +38,34 @@ def load_LLM_and_tokenizer():
         add_bos_token=True,
     )
     tokenizer.pad_token = tokenizer.eos_token
+    #bnb_config = BitsAndBytesConfig(
+        # load_in_8bit=True,
+        # llm_int8_has_fp16_weight=True,
+        #load_in_4bit=True,
+        #bnb_4bit_use_double_quant=True,
+        #bnb_4bit_quant_type="nf4",
+        #bnb_4bit_compute_dtype=torch.float16,
+    #)
+    qconfig = AutoQuantizationConfig.from_description(
+        weight="float8",
+        activation="float8",
+        tokenizer=tokenizer,
+        dataset="c4-new",
+        max_sequence_length=4096,
+        #device="cuda"
+    )
+    print("Finished quantization")
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name_or_path,
+        quantization_config=qconfig,
+        trust_remote_code=True,
+        # local_files_only=True,
+        device_map="auto",  # NOTE use gpu
+        #torch_dtype=torch.bfloat16,
+        use_cache=False,
+        use_fp8=True,
+    )
+    print("Finished load base model")
     model.config.use_cache = False
     model = PeftModel.from_pretrained(model, finetuned_weight)
     return model, tokenizer
@@ -71,7 +82,6 @@ if torch.cuda.device_count() > 1:
 
 INFERENCE_SYSTEM_PROMPT = """คุณคือนักกฎหมายที่จะตอบคำถามเกี่ยวกับกฎหมาย จงตอบคำถามโดยใช้ความรู้ที่ให้ดังต่อไปนี้
 ถ้าหากคุณไม่รู้คำตอบ ให้ตอบว่าไม่รู้ อย่าสร้างคำตอบขึ้นมาเอง"""
-
 
 def generate_inference_prompt(
     question: str, knowledge: str, system_prompt: str = INFERENCE_SYSTEM_PROMPT
@@ -101,7 +111,8 @@ def generate_answer_with_timer(text: str):
         truncation=True,
         max_length=4096,
     )
-    
+    print("\nFinished tokenize input\n")
+
     with torch.cuda.amp.autocast():
         output_tokens = model.generate(
             input_ids=batch["input_ids"].to(
@@ -117,9 +128,12 @@ def generate_answer_with_timer(text: str):
             use_cache=False,
             pad_token_id=tokenizer.eos_token_id,
         )
+    print("\nFinished generate answer\n")
     response = tokenizer.decode(
         output_tokens[0][len(batch["input_ids"][0]) :], skip_special_tokens=True
     )
+    del output_tokens
+    del batch
     response_time = time.time() - start_time
     return response, response_time
 
@@ -133,10 +147,13 @@ def main(question, knowledge):
     # (2) เมื่อที่ประชุมใหญ่มีมติให้เลิก
     # (3) เมื่อนายทะเบียนมีคำสั่งให้เลิก
     # (4) เมื่อล้มละลาย"""
+    if knowledge == "":
+        return "ไม่สามารถตอบคำถามได้", 0.0
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
     print("\nFinished inference with finetuned seallms-7b-v2\n")
     del text
     # print(answer)
     # print(response_time)
+    torch.cuda.empty_cache()
     return answer, response_time

@@ -65,8 +65,6 @@ def handle_message(event):
     question = event.message.text
     print("question = ", question)
     response = call_api(question, url)
-    if len(response["answer"]) < 5:
-        response["answer"] = "ขออภัยครับไม่สามารถตอบคำถามนี้ได้"
     print("answer from llm-service: ", response["answer"])
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)

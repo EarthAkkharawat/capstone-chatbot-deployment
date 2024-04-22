@@ -195,16 +195,22 @@ def retriever(question, documents, vector_database):
         # context search
         retrieved_docs = []
         if not find_case_number(question)[0]:
-            retriever = vector_database.as_retriever(search_type="similarity")
+            retriever = vector_database.as_retriever(search_type="similarity", search_kwargs={"score_threshold": 0.6})
             retrieved_docs = retriever.get_relevant_documents(question)
-
+        if len(retrieved_docs) == 0:
+            return {
+                "time": tf - ti,
+                "question": question,
+                "reranked_docs": "",
+            }
+            
         # rerank
         relevant_src_docs = keywords_filtered_docs + retrieved_docs
         if len(relevant_src_docs) == 0:
             return {
                 "time": tf - ti,
                 "question": question,
-                "reranked_docs": "No relevant source docs",
+                "reranked_docs": "",
             }
         relevant_docs = [doc.page_content for doc in relevant_src_docs]
         if co is None:
@@ -213,7 +219,7 @@ def retriever(question, documents, vector_database):
             query=question,
             documents=relevant_docs,
             model="rerank-multilingual-v2.0",
-            top_n=3,
+            top_n=1,
         )
         results = [relevant_src_docs[hit.index] for hit in rerank_hits.results]
         parse_reranked_docs = parse_source_docs(results)
@@ -284,4 +290,5 @@ def main(question):
     # question = "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"
     qa_res = retriever(question, documents, vectordb)
     print(qa_res)
+    torch.cuda.empty_cache()
     return qa_res

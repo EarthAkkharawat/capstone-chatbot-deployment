@@ -26,18 +26,12 @@ async def create_task(payload: Question):
     response_ir = call_api(question, url)
     time_ir = response_ir["time"]
     source_docs = response_ir["reranked_docs"]
-    
+    if source_docs == "": 
+        return {"answer": "ขออภัยครับไม่สามารถตอบคำถามนี้ได้"}
     response_llm, time_llm = main(question, source_docs)
     
+    if len(response_llm) < 5:
+        return {"answer": "ขออภัยครับไม่สามารถตอบคำถามนี้ได้"}
+    
+    del response_ir, source_docs
     return {"answer": response_llm}
-
-
-
-# from fastapi.testclient import TestClient
-
-# client = TestClient(llm_service)
-
-# # Example test
-# response = client.post("/askq", json={"question": "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"})
-# print(response.status_code)
-# print(response)
