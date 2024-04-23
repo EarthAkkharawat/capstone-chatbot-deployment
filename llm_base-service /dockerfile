@@ -1,0 +1,10 @@
+FROM earthakkharawat/capstone_env:2.0 AS build
+COPY . .
+
+# Runtime stage
+# FROM huggingface/optimum-nvidia
+# COPY --from=build . .
+RUN pip install fastapi
+RUN pip install bitsandbytes
+EXPOSE 8005
+CMD ["python3", "main.py"]

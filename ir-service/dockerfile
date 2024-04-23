@@ -6,4 +6,4 @@ RUN pip install pythainlp
 RUN pip install cohere
 RUN pip install fastapi
 RUN pip install sentence_transformers
-CMD [ "python", "main.py"]
+CMD [ "python3", "main.py"]

@@ -13,7 +13,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
-#from optimum.nvidia import AutoModelForCausalLM
+# from optimum.nvidia import AutoModelForCausalLM
 from optimum.nvidia.quantization import AutoQuantizationConfig, Float8QuantizationConfig
 from peft import (
     PeftModel,
@@ -26,25 +26,22 @@ print(f"using {DEVICE} device")
 
 
 model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
-finetuned_weight = "./seallms_experiments"
 
-
-# Load both LLM model and tokenizer
 def load_LLM_and_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(
-        finetuned_weight,
+        model_name_or_path,
         padding_side="left",
         add_eos_token=True,
         add_bos_token=True,
     )
     tokenizer.pad_token = tokenizer.eos_token
     bnb_config = BitsAndBytesConfig(
-        # load_in_8bit=True,
-        # llm_int8_has_fp16_weight=True,
+        load_in_8bit=True,
+        llm_int8_has_fp16_weight=True,
         load_in_4bit=True,
-        # bnb_4bit_use_double_quant=True,
-        # bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
     )
     # qconfig = AutoQuantizationConfig.from_description(
     #     weight="float8",
@@ -52,7 +49,7 @@ def load_LLM_and_tokenizer():
     #     tokenizer=tokenizer,
     #     dataset="c4-new",
     #     max_sequence_length=4096,
-    #     # device="cuda"
+    #     #device="cuda"
     # )
     print("Finished quantization")
     model = AutoModelForCausalLM.from_pretrained(
@@ -61,13 +58,12 @@ def load_LLM_and_tokenizer():
         trust_remote_code=True,
         # local_files_only=True,
         device_map="auto",  # NOTE use gpu
-        torch_dtype=torch.bfloat16,
+        #torch_dtype=torch.bfloat16,
         use_cache=False,
-        # use_fp8=True,
+        #use_fp8=True,
     )
     print("Finished load base model")
     model.config.use_cache = False
-    model = PeftModel.from_pretrained(model, finetuned_weight)
     return model, tokenizer
 
 
@@ -75,31 +71,21 @@ model, tokenizer = None, None
 
 print("Let's use", torch.cuda.device_count(), "GPUs!")
 
-
 INFERENCE_SYSTEM_PROMPT = """คุณคือนักกฎหมายที่จะตอบคำถามเกี่ยวกับกฎหมาย จงตอบคำถามโดยใช้ความรู้ที่ให้ดังต่อไปนี้
 ถ้าหากคุณไม่รู้คำตอบ ให้ตอบว่าไม่รู้ อย่าสร้างคำตอบขึ้นมาเอง"""
-
 
 def generate_inference_prompt(
     question: str, knowledge: str, system_prompt: str = INFERENCE_SYSTEM_PROMPT
 ) -> str:
-    global tokenizer
-    if tokenizer is None:
-        _, tokenizer = load_LLM_and_tokenizer()
-    batch = tokenizer.encode(
-        knowledge,
-        return_tensors="pt",
-        add_special_tokens=False,
-        max_length=3500,
-        truncation=True,
-        padding="max_length",
-    )
-    knowledge = tokenizer.decode(batch[0], skip_special_tokens=True)
     return f"""<s><|im_start|>system
 {system_prompt.strip()}\nความรู้ที่ให้:
 {knowledge.strip()}</s><|im_start|>user
 {question.strip()}</s><|im_start|>assistant
 """
+
+
+max_new_tokens = 512  # @param {type: "integer"}
+temperature = 0.7  # @param {type: "number"}
 
 
 def generate_answer_with_timer(text: str):
@@ -112,7 +98,9 @@ def generate_answer_with_timer(text: str):
     batch = tokenizer(
         text,
         return_tensors="pt",
-        add_special_tokens=False,
+        padding="max_length",
+        truncation=True,
+        max_length=2048,
     )
     print("\nFinished tokenize input\n")
 
@@ -121,17 +109,17 @@ def generate_answer_with_timer(text: str):
             input_ids=batch["input_ids"].to(
                 DEVICE
             ),  # NOTE if gpu is unavailable DELETE ".to(DEVICE)"
-            max_new_tokens=512,
-            temperature=0.7,
-            top_p=0.9,
-            repetition_penalty=1.1,
+            attention_mask=batch["attention_mask"].to(DEVICE),
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=0.95,
+            repetition_penalty=1.05,
             num_return_sequences=1,
             do_sample=True,
             use_cache=False,
             pad_token_id=tokenizer.eos_token_id,
         )
     print("\nFinished generate answer\n")
-    print("Batch length:", batch["input_ids"].shape)
     response = tokenizer.decode(
         output_tokens[0][len(batch["input_ids"][0]) :], skip_special_tokens=True
     )

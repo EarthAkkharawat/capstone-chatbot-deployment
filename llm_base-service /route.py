@@ -16,7 +16,7 @@ def call_api(question, url):
 
 
 # Create a new question
-@llm_service.post("/createresponse", status_code=201)
+@llm_service.post("/createresponse_base", status_code=201)
 async def create_task(payload: Question):
     print("Getting into create_task function")
     logging.info("Getting into create_task function")
