@@ -1,4 +1,4 @@
-version: "3.7"
+version: "4.0"
 
 services:
   ir-service:
@@ -103,6 +103,16 @@ services:
       - ./.env
     networks:
       - chatbot-network
+    restart: on-failure
+
+  ngrok:
+    container_name: ngrok
+    image: ngrok/ngrok:alpine
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    command: http --domain=bug-loved-hawk.ngrok-free.app gateway-service:8002
     restart: on-failure
 
 networks:
