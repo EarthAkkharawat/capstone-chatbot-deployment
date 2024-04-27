@@ -38,12 +38,12 @@ def load_LLM_and_tokenizer():
     )
     tokenizer.pad_token = tokenizer.eos_token
     bnb_config = BitsAndBytesConfig(
-        load_in_8bit=True,
-        llm_int8_has_fp16_weight=True,
+        # load_in_8bit=True,
+        # llm_int8_has_fp16_weight=True,
         load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        # bnb_4bit_use_double_quant=True,
+        # bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
     )
     # qconfig = AutoQuantizationConfig.from_description(
     #     weight="float8",
@@ -51,7 +51,7 @@ def load_LLM_and_tokenizer():
     #     tokenizer=tokenizer,
     #     dataset="c4-new",
     #     max_sequence_length=4096,
-    #     #device="cuda"
+    #     # device="cuda"
     # )
     print("Finished quantization")
     model = AutoModelForCausalLM.from_pretrained(
@@ -98,6 +98,7 @@ def generate_inference_prompt(
 {question.strip()}</s><|im_start|>assistant
 """
 
+
 def generate_answer_with_timer(text: str):
     start_time = time.time()
     global model
@@ -139,10 +140,11 @@ def generate_answer_with_timer(text: str):
 
 def detect_foreign_characters(text):
     # Regular expression pattern to match Thai, English letters, digits, and special characters
-    pattern = r'[^\u0E00-\u0E7F\u0041-\u005A\u0061-\u007A\u0030-\u0039\u0020-\u007E\“”]'
+    pattern = r"[^\u0E00-\u0E7F\u0041-\u005A\u0061-\u007A\u0030-\u0039\u0020-\u007E\“”]"
     # Find all characters that do not match the pattern
     foreign_chars = re.findall(pattern, text)
     return foreign_chars
+
 
 def main(question, knowledge):
     if knowledge == "":
