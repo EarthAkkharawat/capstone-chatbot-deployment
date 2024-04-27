@@ -34,7 +34,7 @@ async def create_task(payload: Question):
     response_llm, time_llm = main(question, source_docs)
     print("Got response from LLM")
     logging.info("Got response from LLM")
-    if len(response_llm) < 5:
+    if len(response_llm) < 5 or response_llm == "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้":
         return {"answer": "ขออภัยครับไม่สามารถตอบคำถามนี้ได้"}
 
     response_llm = "จาก" + source_docs.split("\n\n")[0] + "\n" +  response_llm
