@@ -1,0 +1,119 @@
+version: "4.0"
+
+services:
+  ir-service:
+    container_name: ir-service
+    build:
+      context: ./ir-service
+      dockerfile: ./dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+    
+  llm-service:
+    container_name: llm-service
+    build:
+      context: ./llm-service
+      dockerfile: ./dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+
+  llm_base-service:
+    container_name: llm_base-service
+    build:
+      context: ./llm_base-service
+      dockerfile: ./dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8005:8005"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+
+  gateway-service:
+    container_name: gateway-service
+    build:
+      context: ./gateway-service
+      dockerfile: ./dockerfile
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    restart: on-failure
+
+  ngrok:
+    container_name: ngrok
+    image: ngrok/ngrok:alpine
+    env_file:
+      - ./.env
+    networks:
+      - chatbot-network
+    command: http --domain=bug-loved-hawk.ngrok-free.app gateway-service:8002
+    restart: on-failure
+
+networks:
+  chatbot-network:

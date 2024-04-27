@@ -1,0 +1,10 @@
+FROM earthakkharawat/capstone_ir_env:1.0 AS build
+COPY . .
+
+EXPOSE 8000
+RUN pip install pythainlp
+RUN pip install cohere
+RUN pip install fastapi
+RUN pip install sentence_transformers
+
+CMD [ "python3", "main.py"]
