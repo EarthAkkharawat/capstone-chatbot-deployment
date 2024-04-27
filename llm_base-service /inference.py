@@ -13,6 +13,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
+
 # from optimum.nvidia import AutoModelForCausalLM
 from optimum.nvidia.quantization import AutoQuantizationConfig, Float8QuantizationConfig
 from peft import (
@@ -26,6 +27,7 @@ print(f"using {DEVICE} device")
 
 
 model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
+
 
 def load_LLM_and_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(
@@ -58,9 +60,9 @@ def load_LLM_and_tokenizer():
         trust_remote_code=True,
         # local_files_only=True,
         device_map="auto",  # NOTE use gpu
-        #torch_dtype=torch.bfloat16,
+        # torch_dtype=torch.bfloat16,
         use_cache=False,
-        #use_fp8=True,
+        # use_fp8=True,
     )
     print("Finished load base model")
     model.config.use_cache = False
@@ -74,19 +76,27 @@ print("Let's use", torch.cuda.device_count(), "GPUs!")
 INFERENCE_SYSTEM_PROMPT = """คุณคือนักกฎหมายที่จะตอบคำถามเกี่ยวกับกฎหมาย จงตอบคำถามโดยใช้ความรู้ที่ให้ดังต่อไปนี้
 ถ้าหากคุณไม่รู้คำตอบ ให้ตอบว่าไม่รู้ อย่าสร้างคำตอบขึ้นมาเอง"""
 
+
 def generate_inference_prompt(
     question: str, knowledge: str, system_prompt: str = INFERENCE_SYSTEM_PROMPT
 ) -> str:
+    global tokenizer
+    if tokenizer is None:
+        _, tokenizer = load_LLM_and_tokenizer()
+    batch = tokenizer.encode(
+        knowledge,
+        return_tensors="pt",
+        add_special_tokens=False,
+        max_length=2800,
+        truncation=True,
+        padding="max_length",
+    )
+    knowledge = tokenizer.decode(batch[0], skip_special_tokens=True)
     return f"""<s><|im_start|>system
 {system_prompt.strip()}\nความรู้ที่ให้:
 {knowledge.strip()}</s><|im_start|>user
 {question.strip()}</s><|im_start|>assistant
 """
-
-
-max_new_tokens = 512  # @param {type: "integer"}
-temperature = 0.7  # @param {type: "number"}
-
 
 def generate_answer_with_timer(text: str):
     start_time = time.time()
@@ -98,9 +108,7 @@ def generate_answer_with_timer(text: str):
     batch = tokenizer(
         text,
         return_tensors="pt",
-        padding="max_length",
-        truncation=True,
-        max_length=2048,
+        add_special_tokens=False,
     )
     print("\nFinished tokenize input\n")
 
@@ -109,17 +117,17 @@ def generate_answer_with_timer(text: str):
             input_ids=batch["input_ids"].to(
                 DEVICE
             ),  # NOTE if gpu is unavailable DELETE ".to(DEVICE)"
-            attention_mask=batch["attention_mask"].to(DEVICE),
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=0.95,
-            repetition_penalty=1.05,
+            max_new_tokens=512,
+            temperature=0.7,
+            top_p=0.9,
+            repetition_penalty=1.1,
             num_return_sequences=1,
             do_sample=True,
             use_cache=False,
             pad_token_id=tokenizer.eos_token_id,
         )
     print("\nFinished generate answer\n")
+    print("Batch length:", batch["input_ids"].shape)
     response = tokenizer.decode(
         output_tokens[0][len(batch["input_ids"][0]) :], skip_special_tokens=True
     )
@@ -129,17 +137,16 @@ def generate_answer_with_timer(text: str):
     return response, response_time
 
 
-def main(question, knowledge):
-    # question = "เมื่อไหร่ที่สมาคมนายจ้างจะถือว่าเลิก"
-    # knowledge = """พระราชบัญญัติแรงงานสัมพันธ์ (ฉบับที่ 3) พ.ศ. 2544 - หมวด 6 (สมาคมนายจ้าง)
+def detect_foreign_characters(text):
+    # Regular expression pattern to match Thai, English letters, digits, and special characters
+    pattern = r'[^\u0E00-\u0E7F\u0041-\u005A\u0061-\u007A\u0030-\u0039\u0020-\u007E\“”]'
+    # Find all characters that do not match the pattern
+    foreign_chars = re.findall(pattern, text)
+    return foreign_chars
 
-    # มาตรา 82  สมาคมนายจ้างย่อมเลิกด้วยเหตุใดเหตุหนึ่ง ดังต่อไปนี้
-    # (1) ถ้ามีข้อบังคับของสมาคมนายจ้างกำหนดให้เลิกในกรณีใด เมื่อมีกรณีนั้น
-    # (2) เมื่อที่ประชุมใหญ่มีมติให้เลิก
-    # (3) เมื่อนายทะเบียนมีคำสั่งให้เลิก
-    # (4) เมื่อล้มละลาย"""
+def main(question, knowledge):
     if knowledge == "":
-        return "ไม่สามารถตอบคำถามได้", 0.0
+        return "ขออภัยครับ ไม่สามารถตอบคำถามได้", 0.0
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
     print("\nFinished inference with finetuned seallms-7b-v2\n")
@@ -149,8 +156,15 @@ def main(question, knowledge):
         end_index = answer.find(">") + 1
         answer = answer.replace(answer[start_index:end_index], "").strip()
 
-    del text
-    # print(answer)
+    non_standard_chars = detect_foreign_characters(answer)
+    if non_standard_chars:
+        answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
+        print("Foreign characters found: ", non_standard_chars)
+    else:
+        print("No Foreign characters found.")
+
+    del text, non_standard_chars
+    print(answer)
     print(response_time)
     torch.cuda.empty_cache()
     return answer, response_time

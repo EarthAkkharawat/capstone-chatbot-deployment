@@ -24,7 +24,6 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"using {DEVICE} device")
 
-
 model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
 finetuned_weight = "./seallms_experiments"
 
@@ -90,7 +89,7 @@ def generate_inference_prompt(
         knowledge,
         return_tensors="pt",
         add_special_tokens=False,
-        max_length=3500,
+        max_length=2800,
         truncation=True,
         padding="max_length",
     )
@@ -140,6 +139,12 @@ def generate_answer_with_timer(text: str):
     response_time = time.time() - start_time
     return response, response_time
 
+def detect_foreign_characters(text):
+    # Regular expression pattern to match Thai, English letters, digits, and special characters
+    pattern = r'[^\u0E00-\u0E7F\u0041-\u005A\u0061-\u007A\u0030-\u0039\u0020-\u007E\“”]'
+    # Find all characters that do not match the pattern
+    foreign_chars = re.findall(pattern, text)
+    return foreign_chars
 
 def main(question, knowledge):
     # question = "เมื่อไหร่ที่สมาคมนายจ้างจะถือว่าเลิก"
@@ -151,7 +156,7 @@ def main(question, knowledge):
     # (3) เมื่อนายทะเบียนมีคำสั่งให้เลิก
     # (4) เมื่อล้มละลาย"""
     if knowledge == "":
-        return "ไม่สามารถตอบคำถามได้", 0.0
+        return "ขออภัยครับ ไม่สามารถตอบคำถามได้", 0.0
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
     print("\nFinished inference with finetuned seallms-7b-v2\n")
@@ -161,8 +166,15 @@ def main(question, knowledge):
         end_index = answer.find(">") + 1
         answer = answer.replace(answer[start_index:end_index], "").strip()
 
-    del text
-    # print(answer)
+    non_standard_chars = detect_foreign_characters(answer)
+    if non_standard_chars:
+        answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
+        print("Foreign characters found: ", non_standard_chars)
+    else:
+        print("No Foreign characters found.")
+
+    del text, non_standard_chars
+    print(answer)
     print(response_time)
     torch.cuda.empty_cache()
     return answer, response_time
