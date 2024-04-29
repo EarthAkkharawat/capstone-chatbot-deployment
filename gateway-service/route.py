@@ -71,6 +71,27 @@ async def callback(request: Request):
     except Exception as e:
         # If an error occurs, return an HTTPException with status code 500 (Internal Server Error)
         raise HTTPException(status_code=500, detail=str(e))
+#api for finetuned chatbot arena
+@api_service.post("/baseline", status_code=201)
+async def callback(request: Request):
+    try:
+        # Parse JSON request body
+        body = await request.json()
+
+        # Extract necessary data from the JSON body
+        question = body.get("question")  # Assuming your JSON request has a "data" field
+
+        # Perform some processing on the data, if needed
+        url = "http://llm-service:8001/createresponse"
+        response =  call_api(url,question)
+        answer = response["answer"]
+
+        # Return a response
+        return {"answer": answer}
+
+    except Exception as e:
+        # If an error occurs, return an HTTPException with status code 500 (Internal Server Error)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
