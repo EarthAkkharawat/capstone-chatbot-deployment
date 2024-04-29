@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from models import Question
-from inference_finetuned import main
+from inference import main
 import requests
 import json
 import logging

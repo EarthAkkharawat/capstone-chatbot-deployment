@@ -120,7 +120,7 @@ def generate_answer_with_timer(text: str):
             input_ids=batch["input_ids"].to(
                 DEVICE
             ),  # NOTE if gpu is unavailable DELETE ".to(DEVICE)"
-            max_new_tokens=512,
+            max_new_tokens=256,
             temperature=0.7,
             top_p=0.9,
             repetition_penalty=1.1,
@@ -160,11 +160,15 @@ def main(question, knowledge):
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
     print("\nFinished inference with finetuned seallms-7b-v2\n")
+    print("Answer before post-processing: \n ", answer)
 
     if "<" in answer and ">" in answer:
         start_index = answer.find("<")
         end_index = answer.find(">") + 1
         answer = answer.replace(answer[start_index:end_index], "").strip()
+
+    if "\n" in answer:
+        answer = answer.replace("\n", " ")
 
     non_standard_chars = detect_foreign_characters(answer)
     if non_standard_chars:
@@ -174,6 +178,7 @@ def main(question, knowledge):
         print("No Foreign characters found.")
 
     del text, non_standard_chars
+    print("Answer after post-processing: \n")
     print(answer)
     print(response_time)
     torch.cuda.empty_cache()

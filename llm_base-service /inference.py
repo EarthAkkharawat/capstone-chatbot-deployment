@@ -25,10 +25,10 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"using {DEVICE} device")
 
-
 model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
 
 
+# Load both LLM model and tokenizer
 def load_LLM_and_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path,
@@ -60,7 +60,7 @@ def load_LLM_and_tokenizer():
         trust_remote_code=True,
         # local_files_only=True,
         device_map="auto",  # NOTE use gpu
-        # torch_dtype=torch.bfloat16,
+        torch_dtype=torch.bfloat16,
         use_cache=False,
         # use_fp8=True,
     )
@@ -72,6 +72,7 @@ def load_LLM_and_tokenizer():
 model, tokenizer = None, None
 
 print("Let's use", torch.cuda.device_count(), "GPUs!")
+
 
 INFERENCE_SYSTEM_PROMPT = """คุณคือนักกฎหมายที่จะตอบคำถามเกี่ยวกับกฎหมาย จงตอบคำถามโดยใช้ความรู้ที่ให้ดังต่อไปนี้
 ถ้าหากคุณไม่รู้คำตอบ ให้ตอบว่าไม่รู้ อย่าสร้างคำตอบขึ้นมาเอง"""
@@ -118,7 +119,7 @@ def generate_answer_with_timer(text: str):
             input_ids=batch["input_ids"].to(
                 DEVICE
             ),  # NOTE if gpu is unavailable DELETE ".to(DEVICE)"
-            max_new_tokens=512,
+            max_new_tokens=256,
             temperature=0.7,
             top_p=0.9,
             repetition_penalty=1.1,
@@ -147,16 +148,28 @@ def detect_foreign_characters(text):
 
 
 def main(question, knowledge):
+    # question = "เมื่อไหร่ที่สมาคมนายจ้างจะถือว่าเลิก"
+    # knowledge = """พระราชบัญญัติแรงงานสัมพันธ์ (ฉบับที่ 3) พ.ศ. 2544 - หมวด 6 (สมาคมนายจ้าง)
+
+    # มาตรา 82  สมาคมนายจ้างย่อมเลิกด้วยเหตุใดเหตุหนึ่ง ดังต่อไปนี้
+    # (1) ถ้ามีข้อบังคับของสมาคมนายจ้างกำหนดให้เลิกในกรณีใด เมื่อมีกรณีนั้น
+    # (2) เมื่อที่ประชุมใหญ่มีมติให้เลิก
+    # (3) เมื่อนายทะเบียนมีคำสั่งให้เลิก
+    # (4) เมื่อล้มละลาย"""
     if knowledge == "":
         return "ขออภัยครับ ไม่สามารถตอบคำถามได้", 0.0
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
-    print("\nFinished inference with finetuned seallms-7b-v2\n")
+    print("\nFinished inference with base seallms-7b-v2\n")
+    print("Answer before post-processing: \n ", answer)
 
     if "<" in answer and ">" in answer:
         start_index = answer.find("<")
         end_index = answer.find(">") + 1
         answer = answer.replace(answer[start_index:end_index], "").strip()
+
+    if "\n" in answer:
+        answer = answer.replace("\n", " ")
 
     non_standard_chars = detect_foreign_characters(answer)
     if non_standard_chars:
@@ -166,6 +179,7 @@ def main(question, knowledge):
         print("No Foreign characters found.")
 
     del text, non_standard_chars
+    print("Answer after post-processing: \n")
     print(answer)
     print(response_time)
     torch.cuda.empty_cache()
