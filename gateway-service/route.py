@@ -50,6 +50,29 @@ def call_api(question, url, timeout=180):
         # For simplicity, just printing the error message for now
     return "Timeout"
 
+#api for base-line
+@api_service.post("/baseline", status_code=201)
+async def callback(request: Request):
+    try:
+        # Parse JSON request body
+        body = await request.json()
+
+        # Extract necessary data from the JSON body
+        question = body.get("question")  # Assuming your JSON request has a "data" field
+
+        # Perform some processing on the data, if needed
+        url = "http://llm-service:8005/createresponse"
+        response =  call_api(url,question)
+        answer = response["answer"]
+
+        # Return a response
+        return {"answer": answer}
+
+    except Exception as e:
+        # If an error occurs, return an HTTPException with status code 500 (Internal Server Error)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 # Create a new question
 @api_service.post("/webhook", status_code=201)
@@ -71,6 +94,7 @@ async def callback(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     return Response(content="OK")
+
 
 
 @handler.add(
