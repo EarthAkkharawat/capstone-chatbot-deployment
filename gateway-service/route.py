@@ -61,7 +61,7 @@ async def callback(request: Request):
         question = body.get("question")  # Assuming your JSON request has a "data" field
 
         # Perform some processing on the data, if needed
-        url = "http://llm-service:8005/createresponse"
+        url = "http://llm-service:8005/createresponse_base"
         response =  call_api(url,question)
         answer = response["answer"]
 
@@ -72,7 +72,7 @@ async def callback(request: Request):
         # If an error occurs, return an HTTPException with status code 500 (Internal Server Error)
         raise HTTPException(status_code=500, detail=str(e))
 #api for finetuned chatbot arena
-@api_service.post("/baseline", status_code=201)
+@api_service.post("/finetuned", status_code=201)
 async def callback(request: Request):
     try:
         # Parse JSON request body
