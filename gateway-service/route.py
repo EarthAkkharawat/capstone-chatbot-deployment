@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Request
 import requests
+import logging
 import json
 import os
+import aiohttp
 from starlette.responses import Response
 from models import Question
 from linebot.v3 import WebhookHandler
@@ -34,9 +36,8 @@ configuration = Configuration(access_token=lineaccesstoken)
 handler = WebhookHandler(channel_secret)
 
 
-def is_first_time_api_call(model = "finetuned"):
+async def is_first_time_api_call(model="finetuned"):
     flag_file = f"api_call_flag_{model}.txt"
-
     if os.path.exists(flag_file):
         return False
     else:
@@ -45,41 +46,42 @@ def is_first_time_api_call(model = "finetuned"):
         return True
 
 
-def call_api(question, url, model = "finetuned", timeout=300):
-    print("Enter call_api function")
-    if is_first_time_api_call(model):
-        print("This is the first time the API call is being made.")
+async def call_api(question, url, model="finetuned", timeout=300):
+    logging.info("Enter call_api function")
+    first_time = await is_first_time_api_call(model)
+    if first_time:
+        logging.info("This is the first time the API call is being made.")
         timeout = 999999
     else:
-        print("This is not the first time the API call is being made.")
-
+        logging.info("This is not the first time the API call is being made.")
+    
     try:
         headers = {"Content-Type": "application/json"}
         payload = {"question": question}
-        print(payload)
-        response = requests.post(
-            url, headers=headers, data=json.dumps(payload), timeout=timeout
-        )
-        print(response)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        return response.json()  
-    except requests.exceptions.Timeout:
-        print("Timeout error: The request took too long to respond.")
-    return "Timeout"
+        logging.info(payload)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload, timeout=timeout) as response:
+                logging.info(response)
+                response.raise_for_status()
+                return await response.json()
+    except aiohttp.ClientError as e:
+        logging.info(f"Client error: {str(e)}")
+        return "Timeout"
 
 
 # api for base
 @api_service.post("/base", status_code=201)
 async def callback(request: Question):
-    print("Using base SeaLLM-7B-v2 model")
+    logging.info("Using base SeaLLM-7B-v2 model")
     try:
         question = request.question
 
         url = "http://llm_base-service:8005/createresponse_base"
-        response = call_api(question, url, "base")
+        response = await call_api(question, url, "base")
         if response == "Timeout":
             answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
-        else: answer = response["answer"]
+        else: 
+            answer = response["answer"]
         del response
         return {"answer": answer}
 
@@ -90,14 +92,15 @@ async def callback(request: Question):
 # api for finetuned chatbot arena
 @api_service.post("/finetuned", status_code=201)
 async def callback(request: Question):
-    print("Using finetuned SeaLLM-7B-v2 model")
+    logging.info("Using finetuned SeaLLM-7B-v2 model")
     try:
         question = request.question 
         url = "http://llm-service:8001/createresponse"
-        response = call_api(question, url, "finetuned")
+        response = await call_api(question, url, "finetuned")
         if response == "Timeout":
             answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
-        else: answer = response["answer"]
+        else: 
+            answer = response["answer"]
         del response
         return {"answer": answer}
 
@@ -109,7 +112,7 @@ async def callback(request: Question):
 # Create a new question
 @api_service.post("/webhook", status_code=201)
 async def callback(request: Request):
-    print("Answering LineOA using finetuned SeaLLM-7B-v2 model")
+    logging.info("Answering LineOA using finetuned SeaLLM-7B-v2 model")
     # get X-Line-Signature header value
     signature = request.headers.get("X-Line-Signature")
 
@@ -177,7 +180,7 @@ def handle_message(event):
                 answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
             else:
                 answer = response["answer"]
-            print("Answer from llm-service: ", answer)
+            logging.info("Answer from llm-service: ", answer)
             with ApiClient(configuration) as api_client:
                 line_bot_api = MessagingApi(api_client)
                 line_bot_api.reply_message_with_http_info(

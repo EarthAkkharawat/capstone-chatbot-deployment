@@ -289,6 +289,6 @@ def main(question):
         vectordb = embed_database(documents=documents, persist_directory=persist_directory)
     # question = "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"
     qa_res = retriever(question, documents, vectordb)
-    print(qa_res)
+    logging.info(qa_res)
     torch.cuda.empty_cache()
     return qa_res

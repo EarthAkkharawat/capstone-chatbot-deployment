@@ -10,8 +10,8 @@ services:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1
       - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     deploy:
       resources:
         reservations:
@@ -36,8 +36,8 @@ services:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1
       - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     deploy:
       resources:
         reservations:
@@ -62,8 +62,8 @@ services:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1
       - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     deploy:
       resources:
         reservations:
@@ -88,8 +88,8 @@ services:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidia1:/dev/nvidia1
       - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-caps:/dev/nvidia-caps
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     deploy:
       resources:
         reservations:

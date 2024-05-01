@@ -38,5 +38,7 @@ async def create_task(payload: Question):
         return {"answer": "ขออภัยครับไม่สามารถตอบคำถามนี้ได้"}
 
     response_llm = "จาก" + source_docs.split("\n\n")[0] + "\n" +  response_llm
+    logging.info("Answer after post-processing: \n")
+    logging.info(response_llm)
     del response_ir, source_docs
     return {"answer": response_llm}

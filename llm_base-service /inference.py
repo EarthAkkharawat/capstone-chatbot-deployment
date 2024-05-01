@@ -6,7 +6,7 @@ import time
 import torch
 import pandas as pd
 import bitsandbytes as bnb
-
+import logging
 from torch.nn import DataParallel
 from transformers import (
     AutoModelForCausalLM,
@@ -23,7 +23,7 @@ from peft import (
 torch.cuda.empty_cache()
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"using {DEVICE} device")
+logging.info(f"using {DEVICE} device")
 
 model_name_or_path = "SeaLLMs/SeaLLM-7B-v2"
 
@@ -53,7 +53,7 @@ def load_LLM_and_tokenizer():
     #     max_sequence_length=4096,
     #     # device="cuda"
     # )
-    print("Finished quantization")
+    logging.info("Finished quantization")
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         quantization_config=bnb_config,
@@ -64,14 +64,14 @@ def load_LLM_and_tokenizer():
         use_cache=False,
         # use_fp8=True,
     )
-    print("Finished load base model")
+    logging.info("Finished load base model")
     model.config.use_cache = False
     return model, tokenizer
 
 
 model, tokenizer = None, None
 
-print("Let's use", torch.cuda.device_count(), "GPUs!")
+logging.info(f"Let's use {torch.cuda.device_count()} GPUs!")
 
 
 INFERENCE_SYSTEM_PROMPT = """คุณคือนักกฎหมายที่จะตอบคำถามเกี่ยวกับกฎหมาย จงตอบคำถามโดยใช้ความรู้ที่ให้ดังต่อไปนี้
@@ -106,13 +106,13 @@ def generate_answer_with_timer(text: str):
     global tokenizer
     if model is None or tokenizer is None:
         model, tokenizer = load_LLM_and_tokenizer()
-    print("\nUsing model and tokenizer\n")
+    logging.info("\nUsing model and tokenizer\n")
     batch = tokenizer(
         text,
         return_tensors="pt",
         add_special_tokens=False,
     )
-    print("\nFinished tokenize input\n")
+    logging.info("\nFinished tokenize input\n")
 
     with torch.cuda.amp.autocast():
         output_tokens = model.generate(
@@ -128,8 +128,8 @@ def generate_answer_with_timer(text: str):
             use_cache=False,
             pad_token_id=tokenizer.eos_token_id,
         )
-    print("\nFinished generate answer\n")
-    print("Batch length:", batch["input_ids"].shape)
+    logging.info("\nFinished generate answer\n")
+    logging.info("Batch length:", batch["input_ids"].shape)
     response = tokenizer.decode(
         output_tokens[0][len(batch["input_ids"][0]) :], skip_special_tokens=True
     )
@@ -140,28 +140,18 @@ def generate_answer_with_timer(text: str):
 
 
 def detect_foreign_characters(text):
-    # Regular expression pattern to match Thai, English letters, digits, and special characters
     pattern = r"[^\u0E00-\u0E7F\u0041-\u005A\u0061-\u007A\u0030-\u0039\u0020-\u007E\“”]"
-    # Find all characters that do not match the pattern
     foreign_chars = re.findall(pattern, text)
     return foreign_chars
 
 
 def main(question, knowledge):
-    # question = "เมื่อไหร่ที่สมาคมนายจ้างจะถือว่าเลิก"
-    # knowledge = """พระราชบัญญัติแรงงานสัมพันธ์ (ฉบับที่ 3) พ.ศ. 2544 - หมวด 6 (สมาคมนายจ้าง)
-
-    # มาตรา 82  สมาคมนายจ้างย่อมเลิกด้วยเหตุใดเหตุหนึ่ง ดังต่อไปนี้
-    # (1) ถ้ามีข้อบังคับของสมาคมนายจ้างกำหนดให้เลิกในกรณีใด เมื่อมีกรณีนั้น
-    # (2) เมื่อที่ประชุมใหญ่มีมติให้เลิก
-    # (3) เมื่อนายทะเบียนมีคำสั่งให้เลิก
-    # (4) เมื่อล้มละลาย"""
     if knowledge == "":
         return "ขออภัยครับ ไม่สามารถตอบคำถามได้", 0.0
     text = generate_inference_prompt(question, knowledge)
     answer, response_time = generate_answer_with_timer(text)
-    print("\nFinished inference with base seallms-7b-v2\n")
-    print("Answer before post-processing: \n ", answer)
+    logging.info("\nFinished inference with base seallms-7b-v2\n")
+    logging.info("Answer before post-processing: \n ", answer)
 
     if "<" in answer and ">" in answer:
         start_index = answer.find("<")
@@ -174,13 +164,11 @@ def main(question, knowledge):
     non_standard_chars = detect_foreign_characters(answer)
     if non_standard_chars:
         answer = "ขออภัยครับ ไม่สามารถตอบคำถามนี้ได้"
-        print("Foreign characters found: ", non_standard_chars)
+        logging.info("Foreign characters found: ", non_standard_chars)
     else:
-        print("No Foreign characters found.")
+        logging.info("No Foreign characters found.")
 
     del text, non_standard_chars
-    print("Answer after post-processing: \n")
-    print(answer)
-    print(response_time)
+    logging.info(response_time)
     torch.cuda.empty_cache()
     return answer, response_time
