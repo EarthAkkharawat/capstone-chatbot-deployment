@@ -1,4 +1,4 @@
-version: "4.0"
+version: "1.0"
 
 services:
   ir-service:
@@ -6,73 +6,8 @@ services:
     build:
       context: ./ir-service
       dockerfile: ./dockerfile
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidia1:/dev/nvidia1
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-caps:/dev/nvidia-caps
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
     ports:
       - "8000:8000"
-    env_file:
-      - ./.env
-    networks:
-      - chatbot-network
-    restart: on-failure
-    
-  llm-service:
-    container_name: llm-service
-    build:
-      context: ./llm-service
-      dockerfile: ./dockerfile
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidia1:/dev/nvidia1
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-caps:/dev/nvidia-caps
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-    ports:
-      - "8001:8001"
-    env_file:
-      - ./.env
-    networks:
-      - chatbot-network
-    restart: on-failure
-
-  llm_base-service:
-    container_name: llm_base-service
-    build:
-      context: ./llm_base-service
-      dockerfile: ./dockerfile
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidia1:/dev/nvidia1
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-caps:/dev/nvidia-caps
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-    ports:
-      - "8005:8005"
     env_file:
       - ./.env
     networks:
@@ -84,19 +19,6 @@ services:
     build:
       context: ./gateway-service
       dockerfile: ./dockerfile
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidia1:/dev/nvidia1
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-caps:/dev/nvidia-caps
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
     ports:
       - "8002:8002"
     env_file:
@@ -113,6 +35,78 @@ services:
     networks:
       - chatbot-network
     command: http --domain=bug-loved-hawk.ngrok-free.app gateway-service:8002
+    restart: on-failure
+
+  trtllm-service:
+    container_name: trtllm-service
+    build:
+      context: ./trtllm-service
+      dockerfile: dockerfile
+    environment:
+      CCACHE_DIR: /code/tensorrt_llm/cpp/.cache
+      CCACHE_BASEDIR: /code/tensorrt_llm
+    volumes:
+      - ./trtllm-service/tamtanai:/app/tamtanai
+      - ./trtllm-service/tamtanai_trt_1gpu_wq:/app/tamtanai_trt_1gpu_wq
+      - ./trtllm-service/tamtanai_engines_1gpu:/app/tamtanai_engines_1gpu
+      - ./trtllm-service/mnts:/app/mnts
+      - ./trtllm-service/tanuayv2:/app/tanuayv2
+      - ./trtllm-service/tanuay_engines_1gpu:/app/tanuay_engines_1gpu
+    env_file:
+      - ./.env
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ["0"]
+            capabilities: [gpu]
+            #count: all
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      #- /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    ports:
+      - "8009:8009"
+    networks:
+      - chatbot-network
+    restart: on-failure
+
+  basellm-service:
+    container_name: basellm-service
+    build:
+      context: ./basellm-service
+      dockerfile: dockerfile
+    environment:
+      CCACHE_DIR: /code/tensorrt_llm/cpp/.cache
+      CCACHE_BASEDIR: /code/tensorrt_llm
+    volumes:
+      - ./basellm-service/tanuayv2:/app/tanuayv2
+      - ./basellm-service/tanuay_trt_1gpu_wq:/app/tanuay_trt_1gpu_wq
+      - ./basellm-service/tanuay_engines_1gpu:/app/tanuay_engines_1gpu
+      - ./basellm-service/mnts:/app/mnts
+    env_file:
+      - ./.env
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: ["1"]
+            capabilities: [gpu]
+            #count: all
+    devices:
+      #- /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidia1:/dev/nvidia1
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    ports:
+      - "8005:8005"
+    networks:
+      - chatbot-network
     restart: on-failure
 
 networks:

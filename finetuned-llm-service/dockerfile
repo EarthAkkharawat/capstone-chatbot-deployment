@@ -1,0 +1,17 @@
+FROM tensorrt_llm/release
+
+COPY ./requirements.txt /app/requirements.txt
+
+RUN pip install --upgrade pip
+RUN pip install -r /app/requirements.txt
+
+COPY ./tools /app/tools
+COPY ./main.py /app/main.py
+COPY ./route.py /app/route.py
+COPY ./models.py /app/models.py
+COPY ./inference_trtllm.py /app/inference_trtllm.py
+
+WORKDIR /app
+
+EXPOSE 8009
+CMD ["python", "main.py"]
