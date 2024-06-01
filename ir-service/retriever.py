@@ -180,18 +180,6 @@ def retriever(question, documents, vector_database):
             raise Exception("No question")
         ti = time.time()
 
-        # keywords search
-        keywords = keyword_search(question)
-        keywords_filtered_docs, matched_keywords = filter_docs_by_keywords(
-            documents, keywords, question
-        )
-        if len(keywords_filtered_docs) == 0:
-            return {
-                "time": 0,
-                "question": question,
-                "reranked_docs": "",
-            }
-
         # context search
         retrieved_docs = []
         if not find_case_number(question)[0]:
@@ -204,28 +192,10 @@ def retriever(question, documents, vector_database):
                 "reranked_docs": "",
             }
             
-        # rerank
-        relevant_src_docs = keywords_filtered_docs + retrieved_docs
-        if len(relevant_src_docs) == 0:
-            return {
-                "time": tf - ti,
-                "question": question,
-                "reranked_docs": "",
-            }
-        relevant_docs = [doc.page_content for doc in relevant_src_docs]
-        if co is None:
-            co = cohere.Client(os.getenv("COHERE"))
-        rerank_hits = co.rerank(
-            query=question,
-            documents=relevant_docs,
-            model="rerank-multilingual-v2.0",
-            top_n=1,
-        )
-        results = [relevant_src_docs[hit.index] for hit in rerank_hits.results]
-        parse_reranked_docs = parse_source_docs(results)
+        parse_reranked_docs = parse_source_docs(retrieved_docs)
         tf = time.time()
         
-        del keywords, keywords_filtered_docs, matched_keywords, retrieved_docs, relevant_src_docs, relevant_docs, rerank_hits, results
+        del retrieved_docs
         
         # return f"""> Time: {tf-ti}\n\n> Question: {question}\n\n> Answer: {result}\n\n> Source docs:\n{relevant_source_docs}"""
         return {
@@ -288,7 +258,9 @@ def main(question):
     if vectordb is None:
         vectordb = embed_database(documents=documents, persist_directory=persist_directory)
     # question = "ขอดูอย่างคดีที่มีการพิพากษาของศาลฎีกาต่างจากศาลอุทธรณ์หน่อยได้ไหมครับ"
+    start_time = time.time()
     qa_res = retriever(question, documents, vectordb)
-    print(qa_res)
+    print(f"IR-service: retriver took {time.time() - start_time:.4f} sec")
+    logging.info(qa_res)
     torch.cuda.empty_cache()
     return qa_res

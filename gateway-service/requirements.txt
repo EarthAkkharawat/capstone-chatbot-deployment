@@ -3,3 +3,6 @@ uvicorn
 pydantic
 requests
 line-bot-sdk
+aiohttp
+logging
+python-dotenv
